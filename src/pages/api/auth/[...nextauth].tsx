@@ -33,8 +33,9 @@ const microsoftEntraProvider = MicrosoftEntraProvider({
 
 const adapter = PrismaAdapter(prisma);
 const isDevelopment = process.env.NODE_ENV === "development";
+const defaultLocalTestAccountEmail = "local-test-account@workplacify.local";
 const localTestAccountEmail =
-  process.env.LOCAL_TEST_ACCOUNT_EMAIL ?? "local-test-account@workplacify.local";
+  process.env.LOCAL_TEST_ACCOUNT_EMAIL ?? defaultLocalTestAccountEmail;
 const localTestAccountPassword =
   process.env.LOCAL_TEST_ACCOUNT_PASSWORD ?? "local-test-account";
 
