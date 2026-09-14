@@ -1,5 +1,6 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth, { AuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
 import { MicrosoftEntraProvider } from "../../../next-auth-providers/MicrosoftEntraProvider";
@@ -31,19 +32,77 @@ const microsoftEntraProvider = MicrosoftEntraProvider({
 });
 
 const adapter = PrismaAdapter(prisma);
+const isDevelopment = process.env.NODE_ENV === "development";
+const localTestAccountEmail =
+  process.env.LOCAL_TEST_ACCOUNT_EMAIL ?? "local-test-account@workplacify.local";
+const localTestAccountPassword =
+  process.env.LOCAL_TEST_ACCOUNT_PASSWORD ?? "local-test-account";
+
+const localTestAccountProvider = CredentialsProvider({
+  name: "Local Test Account",
+  credentials: {
+    email: {
+      label: "Email",
+      type: "email",
+      value: localTestAccountEmail,
+    },
+    password: {
+      label: "Password",
+      type: "password",
+    },
+  },
+  authorize: async (credentials) => {
+    const email = credentials?.email;
+    const password = credentials?.password;
+
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      email !== localTestAccountEmail ||
+      password !== localTestAccountPassword
+    ) {
+      return null;
+    }
+
+    const user = await prisma.user.upsert({
+      where: {
+        email: localTestAccountEmail,
+      },
+      update: {
+        emailVerified: new Date(),
+        name: "Local Test Account",
+      },
+      create: {
+        email: localTestAccountEmail,
+        emailVerified: new Date(),
+        name: "Local Test Account",
+      },
+    });
+
+    return user;
+  },
+});
 
 export const nextAuthOptions: AuthOptions = {
   adapter,
+  session: {
+    strategy: isDevelopment ? "jwt" : "database",
+  },
   providers: [
     ...(isGoogleAuthProviderConfigured ? [googleProvider] : []),
     ...(isMicrosoftEntraProviderConfigured ? [microsoftEntraProvider] : []),
+    ...(isDevelopment ? [localTestAccountProvider] : []),
   ],
   callbacks: {
     session: (props) => {
+      const userId = props.user?.id ?? props.token?.sub;
+      if (!userId) {
+        return props.session;
+      }
       return {
         ...props.session,
         user: {
-          id: props.user.id,
+          id: userId,
           ...props.session.user,
         },
       };
